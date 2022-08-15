@@ -1,3 +1,5 @@
+-- Find Inactive projects within a certain cohort study period that were approved by accounting.
+
 select distinct custProjectStatus from ProjectCustomTabFields
 
 
@@ -14,7 +16,7 @@ left join vma.org
 on org.Org = project.org
 Where project.ProjectStatus = 'I' 
 and WBS2 = ' '
-and custProjectStatus in ('Dead','Dead – Unbilled')
+and custProjectStatus in ('Dead','Dead â€“ Unbilled')
 and CustBdgtApprovedbyAccounting = 'Y' 
 and CustDateInactivated between '2021-01-01'  and '2022-12-31'
 order by ProjectCustomTabFields.CustDateInactivated
