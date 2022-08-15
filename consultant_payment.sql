@@ -1,0 +1,554 @@
+DECLARE @divs TABLE(DivisionCode varchar(14))
+INSERT INTO @divs VALUES ('div_codes')
+
+/*** Check consultant payment based on project payment conditions ***/
+SELECT ll.Company
+	,ll.Vendor
+	,ll.Voucher
+	,Invoice
+	,convert(VARCHAR(10), InvoiceDate, 101) AS InvoiceDate
+	,/*PaidPeriod, */ LiabCode
+	,WBS1 AS Project
+	,WBS2 AS Phase
+	,Account
+	,Line
+	,TransactionCurrencyCode
+	--,ProjectCurrencyCode
+	,PaymentCurrencyCode
+	,LineAmt
+	,LinePaid
+	,LineBal
+	,BudAmt
+	,PctFeeRecv
+	,AvailBud
+	,CASE Type
+		WHEN 8
+			THEN CASE 
+					WHEN Acct_Bal <= 0
+						OR Vch_Bal <= 0
+						THEN 0
+					ELSE CASE 
+							WHEN AvailBud <= AvailAcctAmt
+								THEN CASE 
+										WHEN Dim_AvailBud <= 0
+											THEN 0
+										WHEN Dim_AvailBud >= LineBal
+											THEN LineBal
+										ELSE Dim_AvailBud
+										END
+							ELSE CASE 
+									WHEN Dim_AvailAcctAmt <= 0
+										THEN 0
+									WHEN Dim_AvailAcctAmt >= LineBal
+										THEN LineBal
+									ELSE Dim_AvailAcctAmt
+									END
+							END
+					END
+		WHEN 6
+			THEN CASE 
+					WHEN RmbConPPay = 0
+						THEN CASE 
+								WHEN Inv_Bal <= 0
+									OR Vch_Bal <= 0
+									THEN 0
+								ELSE CASE 
+										WHEN RmbConRecv <= AvailInvAmt
+											THEN CASE 
+													WHEN Dim_AvailConsRecv <= 0
+														THEN 0
+													WHEN Dim_AvailConsRecv >= LineBal
+														THEN LineBal
+													ELSE Dim_AvailConsRecv
+													END
+										ELSE CASE 
+												WHEN Dim_AvailInvAmt <= 0
+													THEN 0
+												WHEN Dim_AvailInvAmt >= LineBal
+													THEN LineBal
+												ELSE Dim_AvailInvAmt
+												END
+										END
+								END
+					ELSE 0
+					END
+		WHEN 5
+			THEN CASE 
+					WHEN RmbExpPPay = 0
+						THEN CASE 
+								WHEN Inv_Bal <= 0
+									OR Vch_Bal <= 0
+									THEN 0
+								ELSE CASE 
+										WHEN RmbExpRecv <= AvailInvAmt
+											THEN CASE 
+													WHEN Dim_AvailExpRecv <= 0
+														THEN 0
+													WHEN Dim_AvailExpRecv >= LineBal
+														THEN LineBal
+													ELSE Dim_AvailExpRecv
+													END
+										ELSE CASE 
+												WHEN Dim_AvailInvAmt <= 0
+													THEN 0
+												WHEN Dim_AvailInvAmt >= LineBal
+													THEN LineBal
+												ELSE Dim_AvailInvAmt
+												END
+										END
+								END
+					ELSE 0
+					END
+		ELSE 0
+		END PayableAmt
+	,CASE
+		WHEN Type = 8
+			THEN CASE Acct_Bal
+					WHEN 0 THEN 0
+					ELSE LineBal
+					END
+		WHEN Type IN (6, 5)
+			THEN CASE Inv_Bal
+					WHEN 0 THEN 0
+					ELSE LineBal
+					END
+		ELSE 0
+		END PotentialPayableAmt
+	,CASE Type
+		WHEN 8
+			THEN '-'
+		ELSE isnull(BilledInvoice, '-')
+		END BilledInvoice
+	,CASE Type
+		WHEN 8
+			THEN CASE 
+					WHEN CustConsultantAccrualException = 'Y'
+						THEN 'CAE'
+					ELSE ''
+					END
+		WHEN 6
+			THEN CASE 
+					WHEN RmbConPPay = 1
+						AND CustConsultantAccrualException = 'Y'
+						THEN 'CAE, PP'
+					WHEN RmbConPPay = 1
+						AND CustConsultantAccrualException = 'N'
+						THEN 'PP'
+					WHEN RmbConPPay <> 1
+						AND CustConsultantAccrualException = 'Y'
+						THEN 'CAE'
+					ELSE ''
+					END
+		WHEN 5
+			THEN CASE 
+					WHEN RmbExpPPay = 1
+						AND CustConsultantAccrualException = 'Y'
+						THEN 'CAE, PP'
+					WHEN RmbExpPPay = 1
+						AND CustConsultantAccrualException = 'N'
+						THEN 'PP'
+					WHEN RmbExpPPay <> 1
+						AND CustConsultantAccrualException = 'Y'
+						THEN 'CAE'
+					ELSE ''
+					END
+		ELSE CASE 
+				WHEN CustConsultantAccrualException = 'Y'
+					THEN 'CAE'
+				ELSE ''
+				END
+		END Exception
+	,CASE Type
+		WHEN 8
+			THEN CASE 
+					WHEN Acct_Bal <= 0
+						OR Vch_Bal <= 0
+						THEN ''
+					ELSE CASE 
+							WHEN AvailBud <= AvailAcctAmt
+								THEN CASE 
+										WHEN Dim_AvailBud <= 0
+											THEN ''
+										WHEN Dim_AvailBud >= LineBal
+											THEN ''
+										ELSE '*'
+										END
+							ELSE CASE 
+									WHEN Dim_AvailAcctAmt <= 0
+										THEN ''
+									WHEN Dim_AvailAcctAmt >= LineBal
+										THEN ''
+									ELSE '*'
+									END
+							END
+					END
+		WHEN 6
+			THEN CASE 
+					WHEN RmbConPPay = 0
+						THEN CASE 
+								WHEN Inv_Bal <= 0
+									OR Vch_Bal <= 0
+									THEN ''
+								ELSE CASE 
+										WHEN RmbConRecv <= AvailInvAmt
+											THEN CASE 
+													WHEN Dim_AvailConsRecv <= 0
+														THEN ''
+													WHEN Dim_AvailConsRecv >= LineBal
+														THEN ''
+													ELSE '*'
+													END
+										ELSE CASE 
+												WHEN Dim_AvailInvAmt <= 0
+													THEN ''
+												WHEN Dim_AvailInvAmt >= LineBal
+													THEN ''
+												ELSE '*'
+												END
+										END
+								END
+					ELSE ''
+					END
+		WHEN 5
+			THEN CASE 
+					WHEN RmbExpPPay = 0
+						THEN CASE 
+								WHEN Inv_Bal <= 0
+									OR Vch_Bal <= 0
+									THEN ''
+								ELSE CASE 
+										WHEN RmbExpRecv <= AvailInvAmt
+											THEN CASE 
+													WHEN Dim_AvailExpRecv <= 0
+														THEN ''
+													WHEN Dim_AvailExpRecv >= LineBal
+														THEN ''
+													ELSE '*'
+													END
+										ELSE CASE 
+												WHEN Dim_AvailInvAmt <= 0
+													THEN ''
+												WHEN Dim_AvailInvAmt >= LineBal
+													THEN ''
+												ELSE '*'
+												END
+										END
+								END
+					ELSE ''
+					END
+		ELSE ''
+		END LinePP
+FROM (
+	SELECT v.Company
+		,v.Vendor
+		,v.Voucher
+		,v.Invoice
+		,v.InvoiceDate
+		,v.PaymentCurrencyCode
+		,v.PaidPeriod
+		,v.LiabCode
+		,lp.TransType
+		,lp.SubType
+		,lp.WBS1
+		,lp.WBS2
+		/* ,lp.BilledWBS1, lp.BilledWBS2 */
+		,lp.Account
+		,c.Type
+		,lp.Line
+		,lp.TransactionCurrencyCode
+		,PR.ProjectCurrencyCode
+		,lp.AmountSourceCurrency LineAmt
+		,lp.BillExt LineBillExt
+		,lp.BilledInvoice
+		,p.CustConsultantAccrualException
+		,isnull(y.PaidAmount, 0) LinePaid
+		,lp.AmountSourceCurrency - isnull(y.PaidAmount, 0) LineBal
+		,isnull(b.BudAmt, 0) BudAmt
+		,isnull(f.PctFeeRecv, 0) PctFeeRecv
+		,isnull(r.RmbConRecv, 0) RmbConRecv
+		,isnull(r.RmbExpRecv, 0) RmbExpRecv
+		,isnull(r.RmbConPPay, - 1) RmbConPPay
+		,isnull(r.RmbExpPPay, - 1) RmbExpPPay
+		,sum(lp.AmountSourceCurrency - isnull(y.PaidAmount, 0)) OVER (
+			PARTITION BY c.Type
+			,lp.Vendor
+			,v.Voucher
+			) Vch_Bal
+		,sum(lp.AmountSourceCurrency - isnull(y.PaidAmount, 0)) OVER (
+			PARTITION BY c.Type
+			,lp.Vendor
+			,lp.WBS1
+			,lp.WBS2
+			,lp.Account
+			) Acct_Bal
+		,sum(lp.AmountSourceCurrency - isnull(y.PaidAmount, 0)) OVER (
+			PARTITION BY c.Type
+			,lp.WBS1
+			,lp.WBS2
+			,lp.BilledInvoice
+			) Inv_Bal
+		,isnull(b.budAmt, 0) * isnull(f.PctFeeRecv, 0) - sum(isnull(y.PaidAmount, 0)) OVER (
+			PARTITION BY lp.Vendor
+			,lp.WBS1
+			,lp.WBS2
+			,lp.Account
+			) AvailBud
+		,isnull(b.budAmt, 0) * isnull(f.PctFeeRecv, 0) - sum(isnull(y.PaidAmount, 0)) OVER (
+			PARTITION BY lp.Vendor
+			,lp.WBS1
+			,lp.WBS2
+			,lp.Account
+			) - sum(lp.AmountSourceCurrency - isnull(y.PaidAmount, 0)) OVER (
+			PARTITION BY c.Type
+			,lp.Vendor
+			,lp.WBS1
+			,lp.WBS2
+			,lp.Account ORDER BY v.InvoiceDate
+				,lp.Voucher
+				,lp.Line rows unbounded preceding
+			) + lp.AmountSourceCurrency - isnull(y.PaidAmount, 0) Dim_AvailBud
+		,sum(lp.AmountSourceCurrency - isnull(y.PaidAmount, 0)) OVER (
+			PARTITION BY c.Type
+			,lp.Vendor
+			,lp.WBS1
+			,lp.WBS2
+			,lp.Account
+			) AvailAcctAmt
+		,sum(lp.AmountSourceCurrency - isnull(y.PaidAmount, 0)) OVER (
+			PARTITION BY c.Type
+			,lp.Vendor
+			,lp.WBS1
+			,lp.WBS2
+			,lp.Account
+			) - sum(lp.AmountSourceCurrency - isnull(y.PaidAmount, 0)) OVER (
+			PARTITION BY c.Type
+			,lp.Vendor
+			,lp.WBS1
+			,lp.WBS2
+			,lp.Account ORDER BY v.InvoiceDate
+				,lp.Voucher
+				,lp.Line rows unbounded preceding
+			) + lp.AmountSourceCurrency - isnull(y.PaidAmount, 0) Dim_AvailAcctAmt
+		,sum(lp.AmountSourceCurrency - isnull(y.PaidAmount, 0)) OVER (
+			PARTITION BY c.Type
+			,lp.WBS1
+			,lp.WBS2
+			,lp.BilledInvoice
+			) AvailInvAmt
+		,sum(lp.AmountSourceCurrency - isnull(y.PaidAmount, 0)) OVER (
+			PARTITION BY c.Type
+			,lp.WBS1
+			,lp.WBS2
+			,lp.BilledInvoice
+			) - sum(lp.AmountSourceCurrency - isnull(y.PaidAmount, 0)) OVER (
+			PARTITION BY c.Type
+			,lp.WBS1
+			,lp.WBS2
+			,lp.BilledInvoice ORDER BY v.InvoiceDate
+				,v.Vendor
+				,lp.Voucher
+				,lp.Line rows unbounded preceding
+			) + lp.AmountSourceCurrency - isnull(y.PaidAmount, 0) Dim_AvailInvAmt
+		,isnull(r.RmbConRecv, 0) - sum(isnull(y.PaidAmount, 0)) OVER (
+			PARTITION BY c.Type
+			,lp.WBS1
+			,lp.WBS2
+			,lp.BilledInvoice
+			) AvailConsRecv
+		,isnull(r.RmbConRecv, 0) - sum(isnull(y.PaidAmount, 0)) OVER (
+			PARTITION BY c.Type
+			,lp.WBS1
+			,lp.WBS2
+			,lp.BilledInvoice
+			) - sum(lp.AmountSourceCurrency - isnull(y.PaidAmount, 0)) OVER (
+			PARTITION BY c.Type
+			,lp.WBS1
+			,lp.WBS2
+			,lp.BilledInvoice ORDER BY v.InvoiceDate
+				,v.Vendor
+				,lp.Voucher
+				,lp.Line rows unbounded preceding
+			) + lp.AmountSourceCurrency - isnull(y.PaidAmount, 0) Dim_AvailConsRecv
+		,isnull(r.RmbExpRecv, 0) - sum(isnull(y.PaidAmount, 0)) OVER (
+			PARTITION BY c.Type
+			,lp.WBS1
+			,lp.WBS2
+			,lp.BilledInvoice
+			) AvailExpRecv
+		,isnull(r.RmbExpRecv, 0) - sum(isnull(y.PaidAmount, 0)) OVER (
+			PARTITION BY c.Type
+			,lp.WBS1
+			,lp.WBS2
+			,lp.BilledInvoice
+			) - sum(lp.AmountSourceCurrency - isnull(y.PaidAmount, 0)) OVER (
+			PARTITION BY c.Type
+			,lp.WBS1
+			,lp.WBS2
+			,lp.BilledInvoice ORDER BY v.InvoiceDate
+				,v.Vendor
+				,lp.Voucher
+				,lp.Line rows unbounded preceding
+			) + lp.AmountSourceCurrency - isnull(y.PaidAmount, 0) Dim_AvailExpRecv
+	FROM VO v
+	INNER JOIN LedgerAP lp ON v.Vendor = lp.Vendor
+		AND v.Voucher = lp.RefNo
+	INNER JOIN CA c ON lp.Account = c.Account
+	INNER JOIN ProjectCustomTabFields p ON lp.WBS1 = p.WBS1
+		AND lp.WBS2 = p.WBS2
+	INNER JOIN PR ON lp.WBS1 = PR.WBS1
+		AND lp.WBS2 = PR.WBS2
+	LEFT JOIN (
+		SELECT WBS1
+			,WBS2
+			,Vendor
+			,Account
+			,sum(AmtBud) BudAmt
+		FROM EB
+		GROUP BY WBS1
+			,WBS2
+			,Vendor
+			,Account
+		) b ON lp.WBS1 = b.WBS1
+		AND lp.WBS2 = b.WBS2
+		AND lp.Vendor = b.Vendor
+		AND lp.Account = b.Account
+	LEFT JOIN (
+		SELECT Vendor
+			,Voucher
+			,Line
+			,sum(AmountSourceCurrency) AS PaidAmount
+		FROM LedgerAP
+		WHERE TransType = 'PP'
+		GROUP BY Vendor
+			,Voucher
+			,Line
+		) y ON lp.Vendor = y.Vendor
+		AND lp.Voucher = y.Voucher
+		AND lp.Line = y.Line
+	LEFT JOIN (
+		SELECT p1.WBS1
+			,p1.WBS2
+			,p1.Fee
+			,p1.ConsultFee
+			,CASE 
+				WHEN (p1.Fee + p1.ConsultFee) = 0
+					THEN 0
+				WHEN l1.FeeRecv >= (p1.Fee + p1.ConsultFee)
+					THEN 1
+				ELSE l1.FeeRecv / (p1.Fee + p1.ConsultFee)
+				END PctFeeRecv
+		FROM PR p1
+		LEFT JOIN (
+			SELECT WBS1
+				,WBS2
+				,sum(CASE 
+						WHEN Account = '401.00'
+							THEN - AmountBillingCurrency
+						ELSE 0
+						END) FeeBilled
+				,sum(CASE 
+						WHEN Account = '111.00'
+							THEN - AmountBillingCurrency
+						ELSE 0
+						END) FeeRecv
+			FROM LedgerAR
+			WHERE TransType IN ('IN', 'CR')
+				AND RefNo <> 'Auto'
+			GROUP BY WBS1
+				,WBS2
+			) l1 ON p1.WBS1 = l1.WBS1
+			AND p1.WBS2 = l1.WBS2
+		) f ON lp.WBS1 = f.WBS1
+		AND lp.WBS2 = f.WBS2
+	LEFT JOIN (
+		SELECT l2.WBS1
+			,l2.WBS2
+			,l2.Invoice
+			,l2.RmbConBill
+			,l2.RmbConRecv
+			,l2.RmbExpBill
+			,l2.RmbExpRecv
+			,CASE 
+				WHEN RmbConbill <= 0
+					THEN - 1
+				WHEN RmbConRecv = 0
+					THEN 0
+				WHEN RmbConRecv >= RmbConBill
+					THEN 0
+				ELSE 1
+				END RmbConPPay
+			,CASE 
+				WHEN RmbExpbill <= 0
+					THEN - 1
+				WHEN RmbExpRecv = 0
+					THEN 0
+				WHEN RmbExpRecv >= RmbExpBill
+					THEN 0
+				ELSE 1
+				END RmbExpPPay
+		FROM (
+			SELECT WBS1
+				,WBS2
+				,Invoice
+				,sum(CASE 
+						WHEN Account = '421.00'
+							THEN - AmountBillingCurrency
+						ELSE 0
+						END) RmbConBill
+				,sum(CASE 
+						WHEN Account = '422.00'
+							THEN - AmountBillingCurrency
+						ELSE 0
+						END) RmbExpBill
+				,sum(CASE 
+						WHEN Account = '111.06'
+							THEN - AmountBillingCurrency
+						ELSE 0
+						END) RmbConRecv
+				,sum(CASE 
+						WHEN Account = '111.07'
+							THEN - AmountBillingCurrency
+						ELSE 0
+						END) RmbExpRecv
+			FROM LedgerAR
+			WHERE TransType IN ('IN', 'CR')
+				AND RefNo <> 'Auto'
+			GROUP BY WBS1
+				,WBS2
+				,Invoice
+			) l2
+		) r ON lp.WBS1 = r.WBS1
+		AND lp.WBS2 = r.WBS2
+		AND lp.BilledInvoice = r.Invoice
+	WHERE lp.TransType = 'AP'
+		AND lp.SubType = 'L'
+		AND (
+			v.LiabCode LIKE '%_C'
+			AND v.LiabCode NOT LIKE '%_IC'
+			)
+		AND lp.WBS1 IN (
+			SELECT WBS1
+			FROM PR
+			WHERE ChargeType = 'R'
+				AND WBS1 <= '99999.99.9'
+				AND WBS2 = ''
+			)
+		AND v.Company IN (SELECT * FROM @divs)
+	) ll
+INNER JOIN (
+	SELECT Vendor
+		,Voucher
+	FROM VO
+	WHERE PaidPeriod = '999999'
+	) vv ON vv.Vendor = ll.Vendor
+	AND vv.Voucher = ll.Voucher
+WHERE Company IN (SELECT * FROM @divs)
+	AND LEFT(WBS1, 5) NOT IN ('09999')
+	AND WBS1 < '99990.00.0'
+ORDER BY WBS1,
+	WBS2,
+	Vendor,
+	Account,
+	InvoiceDate,
+	Voucher,
+	Line
