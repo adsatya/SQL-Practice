@@ -1,7 +1,8 @@
+-- Check consultant payment based on project payment conditions
+
 DECLARE @divs TABLE(DivisionCode varchar(14))
 INSERT INTO @divs VALUES ('div_codes')
 
-/*** Check consultant payment based on project payment conditions ***/
 SELECT ll.Company
 	,ll.Vendor
 	,ll.Voucher
